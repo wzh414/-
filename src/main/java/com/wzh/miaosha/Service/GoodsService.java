@@ -1,13 +1,16 @@
 package com.wzh.miaosha.Service;
 
 import com.wzh.miaosha.Lock.RedisLock;
+import com.wzh.miaosha.Utils.MD5Util;
 import com.wzh.miaosha.dao.GoodsDao;
 import com.wzh.miaosha.entity.Goods;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.sql.Wrapper;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class GoodsService {
@@ -17,6 +20,12 @@ public class GoodsService {
 
     @Autowired
     RedisLock redisLock;
+
+    @Autowired
+    UserService userService;
+
+    @Autowired
+    StringRedisTemplate stringRedisTemplate;
 
     /**
      * 超时时间3s
@@ -31,21 +40,32 @@ public class GoodsService {
         return goodsDao.selectList(null);
     }
 
+    public Goods selectGoodsById(Long id){
+        return goodsDao.selectById(id);
+    }
+
 
     /**
      * 数据库sql乐观锁（版本号控制）
      * @param id
      * @return
      */
-    public int update(Long id){
+    public boolean update(Long id){
+
+        System.out.println(id);
+
         Goods goods = goodsDao.selectById(id);
-//        if (goods == null){
-//
-//        }
-        if(goods.getStock() <=0){
-            return -2;
+        if (goods == null){
+            return false;
         }
-        return goodsDao.updateByIdAndVersion(goods);
+        if(goods.getStock() <=0){
+            stringRedisTemplate.opsForValue().set(goods.getId().toString(),goods.getStock().toString(),1, TimeUnit.DAYS);
+            return false;
+        }
+        int update = goodsDao.updateByIdAndVersion(goods);
+        if (update<=0)return false;
+
+        return true;
     }
 
 
@@ -68,17 +88,17 @@ public class GoodsService {
             System.out.println("不足释放锁");
             return -2;
         }
-//        try{
-//             //为了更好的测试多线程同时进行库存扣减，在进行数据更新之后先等1秒，让多个线程同时竞争资源
-//             Thread.sleep(1000);
-//        }catch (InterruptedException e){
-//             e.printStackTrace();
-//        }
         int update = goodsDao.updateStock(goods);
 
         redisLock.release(id.toString(), String.valueOf(time));
         System.out.println("释放锁");
         return update;
+    }
+
+    public String getSpikePath(String id){
+        String path = MD5Util.getMD5(id);
+        stringRedisTemplate.opsForValue().set("path_"+id,path,3,TimeUnit.MINUTES);
+        return path;
     }
 
 }

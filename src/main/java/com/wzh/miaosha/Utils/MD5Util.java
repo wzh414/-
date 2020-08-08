@@ -12,8 +12,8 @@ public class MD5Util {
      * @param str
      * @return
      */
-    public static String getMD5(String str) {
-        String base = str + salt;
+    public static String getMD5(String str,String s) {
+        String base = str + salt + s;
         String md5 = DigestUtils.md5DigestAsHex(base.getBytes());
         return md5;
     }

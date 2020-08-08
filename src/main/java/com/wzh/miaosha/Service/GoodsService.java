@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.sql.Wrapper;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -95,10 +94,16 @@ public class GoodsService {
         return update;
     }
 
-    public String getSpikePath(String id){
-        String path = MD5Util.getMD5(id);
-        stringRedisTemplate.opsForValue().set("path_"+id,path,3,TimeUnit.MINUTES);
+    public String setSpikePath(String userId,String goodsId){
+        String path = MD5Util.getMD5(userId,goodsId);
+        stringRedisTemplate.opsForValue().set("path_"+userId+"_"+goodsId,path,3,TimeUnit.MINUTES);
         return path;
+    }
+
+    public boolean getSpikePath(String userId,String goodsId,String path){
+        String judge = stringRedisTemplate.opsForValue().get("path_" + userId + "_" + goodsId);
+        if (path.equals(judge))return true;
+        else return false;
     }
 
 }

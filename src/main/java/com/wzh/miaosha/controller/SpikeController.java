@@ -60,13 +60,18 @@ public class SpikeController implements InitializingBean {
         System.out.println("初始化完毕");
     }
 
-    @GetMapping("/spike/{id}/{userId}")
-    public Result<Integer> spikeGoods(@PathVariable("id") Long id,@PathVariable("userId") Long userId){
+    //正规的业务开发应把userId放入session中，这里为了方便调试
+    @GetMapping("/spike/{path}/{id}/{userId}")
+    public Result<Integer> spikeGoods(@PathVariable("path") String path
+            ,@PathVariable("id") Long id,@PathVariable("userId") Long userId){
 
         //设置令牌桶等待时间，如果在规定时间内未成功获取token，则返回失败
         if (!rateLimiter.tryAcquire(5,TimeUnit.SECONDS)){
             return Result.error(CodeMsg.MIAOSHA_FAIL);
         }
+
+        //检验秒杀接口
+        if (!goodsService.getSpikePath(userId.toString(),id.toString(),path))return Result.error(CodeMsg.REQUEST_ILLEGAL);
 
         //控制用户访问次数
         userService.saveUserCount(id.toString());
@@ -107,10 +112,10 @@ public class SpikeController implements InitializingBean {
     }
 
     //将秒杀接口隐藏
-    @GetMapping("/path/{userId}")
-    String getSpikePath(@PathVariable("userId") Long userId){
+    @GetMapping("/path/{id}/{userId}")
+    String getSpikePath(@PathVariable("id") Long id,@PathVariable("userId") Long userId){
 
-        String spikePath = goodsService.getSpikePath(userId.toString());
+        String spikePath = goodsService.setSpikePath(userId.toString(),id.toString());
 
         return spikePath;
     }
